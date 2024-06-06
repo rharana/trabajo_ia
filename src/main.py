@@ -2,12 +2,12 @@ import time
 import pandas as pd
 from sklearn.metrics import mean_squared_error, r2_score
 from ag2 import AG
+import numpy as np
 
 # Nombre genérico del dataset
-nombre_dataset = 'toy1'
-
-nombre_dataset_train = f"./{nombre_dataset}_train.csv"
-nombre_dataset_val = f"./{nombre_dataset}_val.csv"
+nombre_dataset = '../toy1'  # Assuming 'toy1' is the prefix for your dataset files
+nombre_dataset_train = './toy1_train.csv'
+nombre_dataset_val = './toy1_val.csv'
 
 # Crear instancia del AG
 ag = AG(

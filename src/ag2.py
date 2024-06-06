@@ -12,6 +12,7 @@ class Chromosome:
 
     def compute_fitness(self, X, y):
         predictions = np.sum([self.weights[i] * X[:, i]**self.powers[i] for i in range(X.shape[1])], axis=0) + self.bias
+        predictions = np.nan_to_num(predictions, nan=0.0)
         self.score = mean_squared_error(y, predictions)
         return self.score
 
@@ -19,19 +20,19 @@ class Chromosome:
         return f"Chromosome(weights={self.weights}, powers={self.powers}, bias={self.bias}, score={self.score})"
 
 class AG:
-    def __init__(self, train_file, test_file, seed=123, population_size=50, generations=100):
-        self.train_file = train_file
-        self.test_file = test_file
+    def __init__(self, datos_train, datos_test, seed=123, nInd=50, maxIter=100):
+        self.train_file = datos_train
+        self.test_file = datos_test
         self.seed = seed
-        self.population_size = population_size
-        self.generations = generations
+        self.population_size = nInd
+        self.generations = maxIter
         random.seed(seed)
         np.random.seed(seed)
         
         # Cargar datos
         try:
-            self.training_data = pd.read_csv(train_file)
-            self.validation_data = pd.read_csv(test_file)
+            self.training_data = pd.read_csv(datos_train)
+            self.validation_data = pd.read_csv(datos_test)
         except Exception as e:
             raise ValueError(f"Error loading data files: {e}")
         
@@ -41,7 +42,7 @@ class AG:
         self.X_test = self.validation_data.drop('y', axis=1).values
         self.y_test = self.validation_data['y'].values
         
-        self.population = self.initialize_population(population_size, self.X_train.shape[1])
+        self.population = self.initialize_population(nInd, self.X_train.shape[1])
 
     def initialize_population(self, size, num_features):
         return [Chromosome(num_features) for _ in range(size)]
@@ -78,7 +79,7 @@ class AG:
         if random.random() < mutation_prob:
             individual.bias = np.random.uniform(-100, 100)
 
-    def execute(self):
+    def run(self):
         for individual in self.population:
             individual.compute_fitness(self.X_train, self.y_train)
 
@@ -110,6 +111,7 @@ class AG:
 
         # Predicciones sobre el conjunto de test
         y_predictions = np.sum([best_individual.weights[i] * self.X_test[:, i]**best_individual.powers[i] for i in range(self.X_test.shape[1])], axis=0) + best_individual.bias
+        y_predictions = np.nan_to_num(y_predictions, nan=0.0)
 
         return best_individual, y_predictions
 
