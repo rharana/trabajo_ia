@@ -1,13 +1,13 @@
 import time
 import pandas as pd
 from sklearn.metrics import mean_squared_error, r2_score
-from ag import AG
+from ag2 import AG
 
 # Nombre genérico del dataset
 nombre_dataset = 'toy1'
 
-nombre_dataset_train = f"../data/{nombre_dataset}_train.csv"
-nombre_dataset_val = f"../data/{nombre_dataset}_val.csv"
+nombre_dataset_train = f"./{nombre_dataset}_train.csv"
+nombre_dataset_val = f"./{nombre_dataset}_val.csv"
 
 # Crear instancia del AG
 ag = AG(
