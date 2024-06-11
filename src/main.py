@@ -5,16 +5,16 @@ from ag2 import AG
 import numpy as np
 
 # Nombre genérico del dataset
-nombre_dataset = '../toy1'  # Assuming 'toy1' is the prefix for your dataset files
-nombre_dataset_train = './toy1_train.csv'
-nombre_dataset_val = './toy1_val.csv'
+nombre_dataset = '../data/synt1'  # Assuming 'toy1' is the prefix for your dataset files
+nombre_dataset_train = f'{nombre_dataset}_train.csv'
+nombre_dataset_val = f'{nombre_dataset}_val.csv'
 
 # Crear instancia del AG
 ag = AG(
     datos_train=nombre_dataset_train, 
     datos_test=nombre_dataset_val, 
     seed=123, 
-    nInd=50, 
+    nInd=80, 
     maxIter=100
 )
 

@@ -2,121 +2,114 @@ import numpy as np
 import pandas as pd
 import random
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 
-class Chromosome:
-    def __init__(self, num_features):
-        self.weights = np.random.uniform(-10, 10, num_features)
-        self.powers = np.random.uniform(-10, 10, num_features)
-        self.bias = np.random.uniform(-100, 100)
-        self.score = None
+def potencia_segura(x, p):
+    x = np.clip(x, 1e-10, np.inf)
+    return np.power(x, p)
 
-    def compute_fitness(self, X, y):
-        predictions = np.sum([self.weights[i] * X[:, i]**self.powers[i] for i in range(X.shape[1])], axis=0) + self.bias
-        predictions = np.nan_to_num(predictions, nan=0.0)
-        self.score = mean_squared_error(y, predictions)
-        return self.score
+class Cromosoma:
+    def __init__(self, num_caracteristicas):
+        self.pesos = np.random.uniform(-10, 10, num_caracteristicas)
+        self.exponentes = np.random.uniform(-10, 10, num_caracteristicas)
+        self.constante = np.random.uniform(-100, 100)
+        self.puntuacion = None
+
+    def calcular_aptitud(self, X, y):
+        predicciones = np.sum([self.pesos[i] * potencia_segura(X[:, i], self.exponentes[i]) for i in range(X.shape[1])], axis=0) + self.constante
+        self.puntuacion = mean_squared_error(y, predicciones)
+        return self.puntuacion
 
     def __repr__(self):
-        return f"Chromosome(weights={self.weights}, powers={self.powers}, bias={self.bias}, score={self.score})"
+        return f"Cromosoma(pesos={self.pesos}, exponentes={self.exponentes}, constante={self.constante}, puntuación={self.puntuacion})"
 
 class AG:
-    def __init__(self, datos_train, datos_test, seed=123, nInd=50, maxIter=100):
-        self.train_file = datos_train
-        self.test_file = datos_test
-        self.seed = seed
-        self.population_size = nInd
-        self.generations = maxIter
+    def __init__(self, datos_train, datos_test, seed=123, nInd=80, maxIter=120):
+        self.archivo_entrenamiento = datos_train
+        self.archivo_prueba = datos_test
         random.seed(seed)
         np.random.seed(seed)
         
-        # Cargar datos
+        self.cargar_datos()
+        self.poblacion = self.inicializar_poblacion(nInd, self.X_entrenamiento.shape[1])
+        self.numGeneraciones = maxIter
+        self.tamPoblacion = nInd
+
+    def cargar_datos(self):
         try:
-            self.training_data = pd.read_csv(datos_train)
-            self.validation_data = pd.read_csv(datos_test)
+            datos_entrenamiento = pd.read_csv(self.archivo_entrenamiento)
+            datos_prueba = pd.read_csv(self.archivo_prueba)
         except Exception as e:
-            raise ValueError(f"Error loading data files: {e}")
+            raise ValueError(f"Error al cargar los archivos de datos: {e}")
         
-        # Separar características y etiquetas
-        self.X_train = self.training_data.drop('y', axis=1).values
-        self.y_train = self.training_data['y'].values
-        self.X_test = self.validation_data.drop('y', axis=1).values
-        self.y_test = self.validation_data['y'].values
-        
-        self.population = self.initialize_population(nInd, self.X_train.shape[1])
+        escalador = MinMaxScaler()
+        self.X_entrenamiento = escalador.fit_transform(datos_entrenamiento.drop('y', axis=1))
+        self.y_entrenamiento = datos_entrenamiento['y'].values
+        self.X_prueba = escalador.transform(datos_prueba.drop('y', axis=1))
+        self.y_prueba = datos_prueba['y'].values
 
-    def initialize_population(self, size, num_features):
-        return [Chromosome(num_features) for _ in range(size)]
+    def inicializar_poblacion(self, tamano, num_caracteristicas):
+        return [Cromosoma(num_caracteristicas) for _ in range(tamano)]
 
-    def select_parent(self, population):
-        total_fitness = sum(1 / (ind.score + 1e-6) for ind in population)  # Para evitar divisiones por cero
-        selection_point = random.uniform(0, total_fitness)
-        current = 0
-        for individual in population:
-            current += 1 / (individual.score + 1e-6)  # Fitness inversa para minimizar
-            if current > selection_point:
-                return individual
+    def elegir_progenitor(self):
+        aptitud_total = sum(1 / (ind.puntuacion + 1e-6) for ind in self.poblacion)
+        punto_seleccion = random.uniform(0, aptitud_total)
+        acumulado = 0
+        for individuo in self.poblacion:
+            acumulado += 1 / (individuo.puntuacion + 1e-6)
+            if acumulado > punto_seleccion:
+                return individuo
 
-    def perform_crossover(self, parent_a, parent_b):
-        offspring_a = Chromosome(len(parent_a.weights))
-        offspring_b = Chromosome(len(parent_a.weights))
-        crossover_point = random.randint(1, len(parent_a.weights) - 1)
+    def cruzar(self, padre_a, padre_b):
+        if random.random() < 0.2:
+            return (padre_a, padre_b) if padre_a.puntuacion < padre_b.puntuacion else (padre_b, padre_a)
 
-        offspring_a.weights = np.concatenate((parent_a.weights[:crossover_point], parent_b.weights[crossover_point:]))
-        offspring_a.powers = np.concatenate((parent_a.powers[:crossover_point], parent_b.powers[crossover_point:]))
-        offspring_a.bias = parent_a.bias if random.random() > 0.5 else parent_b.bias
+        punto_cruce = random.randint(1, len(padre_a.pesos) - 1)
+        hijo_a = Cromosoma(len(padre_a.pesos))
+        hijo_b = Cromosoma(len(padre_b.pesos))
 
-        offspring_b.weights = np.concatenate((parent_b.weights[:crossover_point], parent_a.weights[crossover_point:]))
-        offspring_b.powers = np.concatenate((parent_b.powers[:crossover_point], parent_a.powers[crossover_point:]))
-        offspring_b.bias = parent_b.bias if random.random() > 0.5 else parent_a.bias
+        hijo_a.pesos = np.concatenate((padre_a.pesos[:punto_cruce], padre_b.pesos[punto_cruce:]))
+        hijo_a.exponentes = np.concatenate((padre_a.exponentes[:punto_cruce], padre_b.exponentes[punto_cruce:]))
+        hijo_a.constante = padre_a.constante if random.random() > 0.5 else padre_b.constante
 
-        return offspring_a, offspring_b
+        hijo_b.pesos = np.concatenate((padre_b.pesos[:punto_cruce], padre_a.pesos[punto_cruce:]))
+        hijo_b.exponentes = np.concatenate((padre_b.exponentes[:punto_cruce], padre_a.exponentes[punto_cruce:]))
+        hijo_b.constante = padre_b.constante if random.random() > 0.5 else padre_a.constante
 
-    def apply_mutation(self, individual, mutation_prob=0.01):
-        for i in range(len(individual.weights)):
-            if random.random() < mutation_prob:
-                individual.weights[i] = np.random.uniform(-10, 10)
-                individual.powers[i] = np.random.uniform(-10, 10)
-        if random.random() < mutation_prob:
-            individual.bias = np.random.uniform(-100, 100)
+        return hijo_a, hijo_b
+
+    def aplicar_mutacion(self, individuo, prob_mutacion=0.0215):
+        for i in range(len(individuo.pesos)):
+            if random.random() < prob_mutacion:
+                individuo.pesos[i] = np.random.uniform(-10, 10)
+                individuo.exponentes[i] = np.random.uniform(-10, 10)
+        if random.random() < prob_mutacion:
+            individuo.constante = np.random.uniform(-100, 100)
 
     def run(self):
-        for individual in self.population:
-            individual.compute_fitness(self.X_train, self.y_train)
+        for individuo in self.poblacion:
+            individuo.calcular_aptitud(self.X_entrenamiento, self.y_entrenamiento)
 
-        for generation in range(self.generations):
-            new_population = []
+        for generacion in range(self.numGeneraciones):
+            nueva_poblacion = []
 
-            # Selección y reproducción
-            for _ in range(self.population_size // 2):
-                parent1 = self.select_parent(self.population)
-                parent2 = self.select_parent(self.population)
-                child1, child2 = self.perform_crossover(parent1, parent2)
-                self.apply_mutation(child1)
-                self.apply_mutation(child2)
-                new_population.extend([child1, child2])
+            for _ in range(self.tamPoblacion // 2):
+                progenitor1 = self.elegir_progenitor()
+                progenitor2 = self.elegir_progenitor()
+                descendencia1, descendencia2 = self.cruzar(progenitor1, progenitor2)
+                self.aplicar_mutacion(descendencia1)
+                self.aplicar_mutacion(descendencia2)
+                nueva_poblacion.extend([descendencia1, descendencia2])
 
-            # Evaluar nueva población
-            for individual in new_population:
-                individual.compute_fitness(self.X_train, self.y_train)
+            for individuo in nueva_poblacion:
+                individuo.calcular_aptitud(self.X_entrenamiento, self.y_entrenamiento)
 
-            # Reemplazar la población anterior con la nueva
-            self.population = new_population
+            self.poblacion = nueva_poblacion
 
-            # Imprimir el mejor individuo de la generación actual
-            best_individual = min(self.population, key=lambda ind: ind.score)
-            print(f"Generation {generation}: Best Fitness = {best_individual.score}")
+            mejor_individuo = min(self.poblacion, key=lambda ind: ind.puntuacion)
+            print(f"Generación {generacion}: Mejor aptitud = {mejor_individuo.puntuacion}")
 
-        # Devolver el mejor individuo encontrado
-        best_individual = min(self.population, key=lambda ind: ind.score)
+        mejor_individuo = min(self.poblacion, key=lambda ind: ind.puntuacion)
+        predicciones = np.sum([mejor_individuo.pesos[i] * potencia_segura(self.X_prueba[:, i], mejor_individuo.exponentes[i]) for i in range(self.X_prueba.shape[1])], axis=0) + mejor_individuo.constante
 
-        # Predicciones sobre el conjunto de test
-        y_predictions = np.sum([best_individual.weights[i] * self.X_test[:, i]**best_individual.powers[i] for i in range(self.X_test.shape[1])], axis=0) + best_individual.bias
-        y_predictions = np.nan_to_num(y_predictions, nan=0.0)
-
-        return best_individual, y_predictions
-
-# Ejemplo de ejecución
-# ga = GeneticAlgorithm('datos_train.csv', 'datos_test.csv')
-# best_ind, preds = ga.execute()
-# print(best_ind)
-# print(preds)
+        return mejor_individuo, predicciones
