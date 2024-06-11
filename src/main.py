@@ -5,7 +5,7 @@ from ag2 import AG
 import numpy as np
 
 # Nombre genérico del dataset
-nombre_dataset = '../data/synt1'  # Assuming 'toy1' is the prefix for your dataset files
+nombre_dataset = '../data/housing'  # Assuming 'toy1' is the prefix for your dataset files
 nombre_dataset_train = f'{nombre_dataset}_train.csv'
 nombre_dataset_val = f'{nombre_dataset}_val.csv'
 
